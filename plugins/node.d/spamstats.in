@@ -122,6 +122,7 @@ sub parselogfile
     {
         tail_close($logfd);
         my $rotfname = rotlog($fname);
+        $stop = (stat $rotfname)[7];
         ($logfd, undef ) = tail_open($rotfname,$start);
     }
 
