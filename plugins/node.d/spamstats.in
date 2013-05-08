@@ -44,7 +44,7 @@ my $LOGDIR  = (defined($ENV{'logdir'}) ? $ENV{'logdir'} : '/var/log');
 my $LOGFILE = (defined($ENV{'logdir'}) ? $ENV{'logfile'} : 'mail.info');
 my $SPAMD = (defined($ENV{'spamd'}) ? $ENV{'spamd'} : 'spamd');
 my $logfile = "$LOGDIR/$LOGFILE";
-my $rotlogfile = rotlog($logfile);
+#my $rotlogfile = rotlog($logfile);
 
 if ( defined($ARGV[0]) and $ARGV[0] eq "autoconf" )
 {
@@ -79,7 +79,7 @@ if ( $ARGV[0] and $ARGV[0] eq "config" )
     exit 0;
 }
 
-if (! -f $logfile and ! -f $rotlogfile)
+if (! -f $logfile )
 {
     print "ham.value U\n";
     print "spam.value U\n";
@@ -88,29 +88,25 @@ if (! -f $logfile and ! -f $rotlogfile)
 
 my ($pos, $ham, $spam) = restore_state();
 
+my $startsize = (stat $logfile)[7];
+
+# Initial run.
+$pos = $startsize unless(defined $pos);
+
 $ham = 0 unless defined($ham);
 $spam = 0 unless defined($spam);
 
-my $startsize = (stat $logfile)[7];
 
-if (!defined $pos)
-{
-    # Initial run.
-    $pos = $startsize;
-}
-
-if ($startsize < $pos)
-{
-    # Log rotated
-    if (-f $rotlogfile) {
-        parselogfile ($rotlogfile, $pos, (stat $rotlogfile)[7]);
-    }
-    $pos = 0;
-}
+#if ($startsize < $pos)
+#{
+#    # Log rotated
+#    if (-f $rotlogfile) {
+#        parselogfile ($rotlogfile, $pos, (stat $rotlogfile)[7]);
+#    }
+#    $pos = 0;
+#}
 
 $pos = parselogfile ($logfile, $pos, $startsize);
-
-$pos = $startsize;
 
 print "ham.value $ham\n";
 print "spam.value $spam\n";
@@ -120,21 +116,35 @@ save_state($pos, $ham, $spam);
 sub parselogfile
 {
     my ($fname, $start, $stop) = @_;
-	my ($logfd, $reset) = tail_open($fname, $start);
+    my ($logfd, $reset) = tail_open($fname, $start);
+
+    if ( $reset )
+    {
+        tail_close($logfd);
+        my $rotfname = rotlog($fname);
+        ($logfd, undef ) = tail_open($rotfname,$start);
+    }
 
     while (tell($logfd) < $stop)
     {
-	my $line =<$logfd>;
-	chomp ($line);
+        my $line =<$logfd>;
+        chomp ($line);
 
-	if ($line =~ m/clean message/) 
-	{
-	    $ham++;
-	} 
-	elsif ($line =~ m/identified spam/)
-	{
-	    $spam++;
-	}
+        if ($line =~ m/clean message/)
+        {
+	        $ham++;
+        }
+        elsif ($line =~ m/identified spam/)
+        {
+	        $spam++;
+        }
     }
-    return tail_close($logfd);    
+    if ($reset)
+    {
+        return "0";
+    }
+    else
+    {
+        return tail_close($logfd);
+    }
 }
