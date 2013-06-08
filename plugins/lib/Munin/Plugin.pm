@@ -26,6 +26,7 @@ use strict;
 
 # Put only core Perl modules here, as we don't want to ask for more deps
 use File::Temp; # File::Temp was first released with perl 5.006001
+use File::Basename;
 
 # This file uses subroutine prototypes. This is concidered a bad
 # practice according to PBP (see page 194).
@@ -69,6 +70,8 @@ our @EXPORT = qw(
         need_multigraph
         readfile
         readarray
+        rotlog
+        autoconf_logfile
 );
 
 use Munin::Common::Defaults;
@@ -653,6 +656,69 @@ need to be run as a special user or need special priveliges.
     exit 0;
 }
 
+=head3 $rotlogfile = rotlog($logfile)
+
+Guess rotated logfile name and returns its name if found.
+
+=cut
+sub rotlog (@) {
+
+    my $logfile = shift;
+    my $rotlogfile;
+
+    if (-r "$logfile.0")
+    {
+        $rotlogfile = $logfile . ".0";
+    }
+    elsif (-r "$logfile.1")
+    {
+        $rotlogfile = $logfile . ".1";
+    }
+    elsif (-r "$logfile.01")
+    {
+        $rotlogfile = $logfile . ".01";
+    }
+    return $rotlogfile;
+};
+
+=head3 $autoconf = autoconf_logfile($file)
+
+Checks if file exists and is readable, returns an
+autoconf string
+
+=cut
+
+sub autoconf_logfile (@) {
+
+    my $file = shift;
+    my $dir = dirname($file);
+    my $s;
+    my $exit=0;
+
+    if (-d $dir)
+    {
+        if (-f $file)
+        {
+            if (-r $file)
+            {
+                $s = "yes";
+            }
+            else
+            {
+                $s = "no (file '$file' not readable)";
+            }
+        }
+        else
+        {
+            $s = "no (file '$file' not found)";
+        }
+    }
+    else
+    {
+        $s = "no (could not find dir '$dir')";
+    }
+    return $s;
+};
 
 =head3 Testing
 
